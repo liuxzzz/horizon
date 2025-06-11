@@ -25,14 +25,88 @@ summary: Example of a markdown file with code blocks and syntax highlighting
 2. 加载完成的状态是如何定义的？
 
 
+写一个这样的demo：
+```
+import { Suspense } from "react";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+
+
+async function DashboardContent1() {
+  await sleep(2000);
+  return (
+    <div>
+      <h1>DashboardContent1</h1>
+    </div>
+  );
+}
+
+async function DashboardContent2() {
+  await sleep(4000);
+
+  return (
+    <div>
+      <h1>DashboardContent2</h1>
+    </div>
+  );
+}
+
+
+async function DashboardContent3() {
+  await sleep(6000);
+
+  return (
+    <div>
+      <h1>DashboardContent3</h1>
+    </div>
+  );
+}
+
+
+export default function Dashboard() {
+  return (
+    <section style={{ padding: "20px" }}>
+      <Suspense fallback={<div>Loading...</div>}>
+        <DashboardContent1 />
+
+        <Suspense fallback={<div>Loading...</div>}>
+        <DashboardContent2 />
+        <Suspense fallback={<div>Loading...</div>}>
+        <DashboardContent3 />
+      </Suspense>
+      </Suspense>
+
+      </Suspense>
+  
+    </section>
+  );
+}
+
+```
+
+在浏览器中获取到的 HTML 文件中能够发现：
+Suspense 组件的 fallback UI 和渲染后的内容是同时存在的。说明客户端和服务端保持的是长链接，在服务端渲染完成之后会将渲染后的组件发送给客户端，进行替换。
+
+这个过程被称之为流式渲染（Streaming Server Rendering）。这个过程解决了传统ssr的一个重要的问题：需要在页面所有数据获取之后再渲染后发送给客户端。
+
+还有一个好处就是：选择性水合。
+简单理解就是：先到先得，先加载完成的组件先进行水合。 这样你就能控制在页面上哪些重要的、常被用户操作的组件优先进行渲染，而那些不重要的、不常被用户操作的组件可以稍后进行渲染。
+
+总结一下，使用 Suspense，可以解锁两个主要的好处，使得 SSR 的功能更加强大：
+  - 流式渲染
+  - 选择性水合
+
+
+
+这时我们在回过头看刚开始抛出的两个疑问：
+1. 子组件是客户端组件还是服务端组件？
+子组件必须也是服务端组件，因为子组件也是在服务端渲染之后传递给客户端的。
+
+2. 加载完成的状态是如何定义的？
+在服务器组件中，分两段式加载：1.数据获取完毕，2.组件渲染完毕。
+
+所以加载完成的状态指的是 组件渲染完毕。
 
 
 
 
-
-## Streaming Server Rendering
-
-
-## 选择性水合
-
-思考一个问题：为什么 Suspense 可以做到选择性水合，跟 Suspense 的特性有什么关系？
