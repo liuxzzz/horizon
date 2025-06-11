@@ -1,0 +1,38 @@
+---
+title: 深入理解 Suspense 和流式渲染
+date: '2025-06-05'
+tags: ['React', 'Nextjs', 'Frontend']
+draft: false
+summary: Example of a markdown file with code blocks and syntax highlighting
+---
+
+## Suspense
+
+### Suspense 的官方定义
+`<Suspense>` 允许在子组件完成加载前展示后备方案。
+
+```
+<Suspense fallback={<Loading />}>
+  <SomeComponent />
+</Suspense>
+```
+
+后备方案，就是`fallback` 是 `Suspense` 的属性，简单来说就是在子组件加载完成前显示的loading 或者是占位符。
+
+那么如何理解 子组件加载完成前呢？
+这里抛出两个疑问：
+1. 子组件是客户端组件还是服务端组件？
+2. 加载完成的状态是如何定义的？
+
+
+
+
+
+
+
+## Streaming Server Rendering
+
+
+## 选择性水合
+
+思考一个问题：为什么 Suspense 可以做到选择性水合，跟 Suspense 的特性有什么关系？
