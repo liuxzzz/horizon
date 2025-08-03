@@ -1,0 +1,55 @@
+---
+title: m3u8 文件格式学习（基于Gpt study mode）
+date: '2025-08-03'
+tags: ['Media', 'Video', 'm3u8']
+draft: false
+summary: 介绍 m3u8 文件格式的结构、关键字段以及常见的使用场景
+---
+
+
+🧩 你可能先知道的：
+Q：你可能听说过 .mp4、.avi 这类视频文件格式，那 .m3u8 跟这些有什么不同？
+
+A：m3u8是个清单文件，里面列出了视频的一个个小片段（通常是 .ts 文件），并说明了这些片段的播放顺序。
+
+看一个例子：
+```
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:2.000000,
+transcode_live-62081rWdNeCOZ7oJ--20250802194040_128441_0000000.ts?cdn=tx&ct=web&d=51bd9aeecf781ad7788f820400051701&exper=0&nlimit=5&pt=2&sign=b218f482c4c743bf2113d638fc11f4f7&tlink=688f0cac&tplay=688f994c&u=942054575&us=51bd9aeecf781ad7788f820400051701&vid=43847142
+#EXTINF:2.000000,
+transcode_live-62081rWdNeCOZ7oJ--20250802194040_128441_0000001.ts?cdn=tx&ct=web&d=51bd9aeecf781ad7788f820400051701&exper=0&nlimit=5&pt=2&sign=b218f482c4c743bf2113d638fc11f4f7&tlink=688f0cac&tplay=688f994c&u=942054575&us=51bd9aeecf781ad7788f820400051701&vid=43847142
+#EXTINF:2.000000,
+transcode_live-62081rWdNeCOZ7oJ--20250802194040_128441_0000002.ts?cdn=tx&ct=web&d=51bd9aeecf781ad7788f820400051701&exper=0&nlimit=5&pt=2&sign=b218f482c4c743bf2113d638fc11f4f7&tlink=688f0cac&tplay=688f994c&u=942054575&us=51bd9aeecf781ad7788f820400051701&vid=43847142
+#EXTINF:2.000000,
+transcode_live-62081rWdNeCOZ7oJ--20250802194040_128441_0000003.ts?cdn=tx&ct=web&d=51bd9aeecf781ad7788f820400051701&exper=0&nlimit=5&pt=2&sign=b218f482c4c743bf2113d638fc11f4f7&tlink=688f0cac&tplay=688f994c&u=942054575&us=51bd9aeecf781ad7788f820400051701&vid=43847142
+#EXTINF:2.000000,
+...
+```
+
+这是一个m3u8 文件内容，里面有几个关键字段来描述视频的播放信息：
+
+- #EXTM3U：表示这是一个m3u8文件
+- #EXT-X-VERSION:3：表示m3u8文件的版本
+- #EXT-X-TARGETDURATION:10：表示每个ts文件的最大时长
+- #EXT-X-MEDIA-SEQUENCE:0：表示第一个ts文件的序号
+
+transcode_live-62081rWdNeCOZ7oJ--20250802194040_128441_0000000.ts 则指向了单段视频的文件地址。
+可以看出m3u8 其实并不包含视频数据本身，而是指向多个小视频段的地址。
+
+## 应用场景
+
+使用m3u8 来 配合 HLS 协议 在视频在线播放平台来使用，例如：b站、斗鱼、爱奇艺等等场景下。
+
+对比单个视频地址的解决方案，我们能从交互上感受到m3u8带来的优点：
+1. 切换清晰度，在我们进行切换清晰度的操作后，后续下载的ts文件会自动切换到对应清晰度的ts文件，对用户来说，体验更好。
+2. 更快的播放，本身是按照顺序分段加载，因此在首次播放或者是拖动进度条的时候都可以快速加载到对应的视频片段。
+3. 对视频的缓存存在一定的门槛。
+
+
+## 如何下载视频？
+
+通过对m3u8 文件的分析，可以使用 ffmpeg 来实现 将每一段的ts视频进行拼接，从而实现下载视频。
