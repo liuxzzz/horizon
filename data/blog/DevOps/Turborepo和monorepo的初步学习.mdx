@@ -1,0 +1,70 @@
+---
+title: Turborepo 和 Monorepo 初识
+date: '2025-09-29'
+tags: ['frontend']
+draft: false
+---
+
+## Monorepo（单体仓库）
+Monorepo 是 "Monolithic Repository" 的缩写，指的是将多个相关的项目或包放在同一个 Git 仓库中管理的开发模式。
+
+传统方式 vs Monorepo
+传统方式（Multi-repo）：
+```
+项目A/
+├── .git/
+├── package.json
+└── src/
+
+项目B/
+├── .git/
+├── package.json
+└── src/
+
+共享库C/
+├── .git/
+├── package.json
+└── src/
+
+```
+
+Monorepo 方式：
+```
+整个项目/
+├── .git/
+├── package.json (根配置)
+├── packages/
+│   ├── 项目A/
+│   ├── 项目B/
+│   └── 共享库C/
+└── apps/
+    ├── web应用/
+    └── 移动应用/
+```
+
+Monorepo 的优势：
+- 代码共享简单：共享库可以直接引用，无需发布到 npm
+- 统一的版本控制：所有项目在同一个仓库中，版本同步
+- 原子性提交：可以在一个 commit 中同时修改多个包
+- 统一的工具链：共享 lint、test、build 配置
+- 依赖管理：避免版本冲突，统一管理依赖
+
+Monorepo 的挑战：
+- 代码权限管理复杂
+- 构建时间比较长，迁一发而动全身
+- 仓库体积随着项目复杂度的增加而指数增长
+
+为了解决单一仓库带来的构建性能问题。
+出现了Turborepo。Turborepo 是由 Vercel 开发的高性能构建系统，专门为 JavaScript/TypeScript monorepo 设计。它解决了传统 monorepo 工具的性能问题。
+
+Turborepo 的核心特性：
+1. 缓存
+对构建结果进行缓存，避免重复构建
+2. 并行构建
+自动分析依赖关系，无依赖关系的项目可以并行构建
+3. 增量构建
+只构建发生了变化的区域。
+
+总结：
+Monorepo 是一种代码组织方式，将相关项目放在同一个仓库中。
+Turborepo 是一个工具，让 Monorepo 的构建更快更智能。
