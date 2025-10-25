@@ -1,0 +1,358 @@
+---
+title: React 应用中性能优化实践分享（一） 理论知识篇
+date: '2025-10-11'
+tags: ['React', 'Nextjs', 'Frontend','性能优化']
+draft: false
+---
+
+## base 
+https://www.developerway.com/posts/react-re-renders-guide
+
+### React中的重新渲染是什么？
+
+当谈到React性能时，有两个主要阶段我们需要关注：
+- **初始渲染** 发生在组件第一次被渲染的时候
+- **重渲染** 通常发生在状态变更时
+
+还有一个概念需要提及的就是**必要渲染**和**不必要的渲染**。
+
+必要渲染可以理解为状态变更后组件必须重新渲染将新的数据状态更新到UI上，例如一个input组件在用户按下了字母之后，需要将按下的值更新到UI上，而不必要的渲染则是如果每次按键都渲染了整个页面，则该页面被不必要地重新渲染了。
+
+不必要的重新渲染本身不是问题：React 非常快，通常能够在用户不注意的情况下处理它们。
+
+但是，如果重新渲染过于频繁和/或在非常繁重的组件上进行，这可能会导致用户体验显得“滞后”，每次交互都会出现明显的延迟，甚至应用程序完全没有响应。这里也是性能优化的重灾区。
+
+### React 组件何时重新渲染自身？
+
+组件重新渲染的原因有四种：
+1. 状态变化 state changes 
+2. 父级（或子级）重新渲染 parent (or children) re-renders
+3. 上下文变化 context changes
+4. 钩子变化 hooks changes
+
+也存在一个大的误区：认为组件的props变化时会发生重新渲染。本身来说，这并不正确（见下文解释）。
+
+#### 1. Re-renders reason: state changes
+
+当组件中的状态发生变化时，会出发重新渲染。通常会发生在 useEffect 中，或者是callback 中。
+
+State changes are the “root” source of all re-renders.
+
+```
+import { useState } from "react";
+import "./styles.css";
+
+const App = () => {
+  const [state, setState] = useState(1);
+
+  const onClick = () => {
+    setState(state + 1);
+  };
+
+  console.log("Re-render number: ", state);
+
+  return (
+    <>
+      <h2>Open console, click a button</h2>
+      <p>Re-render because of state change should be logged on every click</p>
+      <button onClick={onClick}>click here</button>
+    </>
+  );
+};
+
+export default App;
+```
+
+
+
+
+#### 2. Re-renders reason: 父组件重渲染
+
+一个组件如果其父组件重新渲染，它也会重新渲染自己。或者，如果我们从相反的方向来看：当一个组件重新渲染时，它也会重新渲染所有子组件。
+
+```
+'use client'
+import { useState } from "react";
+
+export default function Home() {
+  const [state, setState] = useState(1);
+
+  const onClick = () => {
+    setState(state + 1);
+  };
+
+  console.log("Re-render number: ", state);
+
+  return (
+    <>
+      <h2>Open console, click a button</h2>
+      <p>Re-render because of state change should be logged on every click</p>
+      <button onClick={onClick}>click here</button>
+
+      <Child />
+    </>
+  );
+}
+const Child = () => {
+  console.log("Child re-renders");
+  return <></>;
+};
+
+
+```
+
+
+#### 3. Re-renders reason: context changes
+
+当Context Provider中的值发生变化时，所有使用此Context的组件都将重新渲染，即使它们没有直接使用变化的数据部分。
+
+```
+import { useState, createContext, useContext, useMemo, ReactNode } from "react";
+import "./styles.css";
+
+const Context = createContext<{ value: number }>({ value: 1 });
+
+const Provider = ({ children }: { children: ReactNode }) => {
+  const [state, setState] = useState(1);
+
+  const onClick = () => {
+    setState(state + 1);
+  };
+
+  const value = useMemo(
+    () => ({
+      value: state
+    }),
+    [state]
+  );
+  return (
+    <Context.Provider value={value}>
+      <button onClick={onClick}>click here</button>
+      {children}
+    </Context.Provider>
+  );
+};
+
+const useValue = () => useContext(Context);
+
+const Child1 = () => {
+  const { value } = useValue();
+  console.log("Child1 re-renders: ", value);
+  return <></>;
+};
+
+const Child2 = () => {
+  const { value } = useValue();
+  console.log("Child2 re-renders", value);
+  return <></>;
+};
+
+const App = () => {
+  return (
+    <Provider>
+      <h2>Open console, click a button</h2>
+      <p>Both children will re-render because of context</p>
+
+      <Child1 />
+      <Child2 />
+    </Provider>
+  );
+};
+
+export default App;
+
+```
+
+
+#### 4. Re-renders reason: hooks changes
+
+钩子内部发生的所有状态变化都会被组件捕捉
+
+```
+// 自定义 hook
+const useCounter = () => {
+  const [count, setCount] = useState(0);
+  
+  const increment = () => setCount(prev => prev + 1);
+  
+  return { count, increment };
+};
+
+// 使用该 hook 的组件
+const MyComponent = () => {
+  const { count, increment } = useCounter(); // hooks changes 会触发重渲染
+  
+  console.log('Component re-renders because of hooks changes');
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={increment}>Increment</button>
+    </div>
+  );
+};
+```
+
+#### ⛔️ 重新渲染原因：props变化（大误区）
+在讨论未缓存组件的重新渲染时，组件的props是否改变并不重要。
+
+为了让props改变，它们需要由父组件更新。这意味着父组件将需要重新渲染，这将触发子组件的重新渲染，无论其props如何。
+只有在使用缓存技术（React.memo，useMemo）时，props的改变才变得重要。
+
+无论 props 是否变化，子组件都会重新渲染，因为父组件重新渲染了！
+
+🎯 Props 变化何时重要？
+
+Props 变化只在使用缓存技术时才重要：
+
+```javascript
+const Parent = () => {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>点击: {count}</button>
+      {/* props 没有变化，但子组件仍会重新渲染 */}
+      <Child name="固定值" />
+    </div>
+  );
+};
+
+const Child = ({ name }) => {
+  console.log('Child 重新渲染了！props:', name);
+  return <div>Hello {name}</div>;
+};
+
+// 每次点击按钮，Child 都会重新渲染
+// 即使 name prop 始终是 "固定值"
+// 原因：父组件重新渲染 → 子组件重新渲染
+```
+
+
+#### ⛔️ 反模式：在渲染函数中创建组件
+
+ 🤔 什么是"在渲染函数中创建组件"？
+
+错误做法：
+
+```
+const Parent = () => {
+  const [count, setCount] = useState(0);
+  
+  // ❌ 反模式：在渲染函数内部定义组件
+  const BadChild = () => {
+    const [childState, setChildState] = useState('hello');
+    
+    useEffect(() => {
+      console.log('useEffect 每次都会执行！');
+    }, []); // 即使依赖数组为空
+    
+    return (
+      <div>
+        <input value={childState} onChange={(e) => setChildState(e.target.value)} />
+        <p>Count from parent: {count}</p>
+      </div>
+    );
+  };
+  
+  return (
+    <div>
+      <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+      <BadChild /> {/* 每次重渲染都会重新创建！ */}
+    </div>
+  );
+};
+```
+
+🔥 为什么这是性能杀手？
+
+1. 在重渲染时，会被认为是一个新组件，会销毁旧组件，创建全新的组件。
+2. 会导致状态重置，组件被销毁和重建过程中可能出现视觉闪烁
+
+
+正确做法是将组件定义移到外部。
+
+
+
+#### ✅ Preventing re-renders with composition: children as props
+
+这也可以称为“将状态包裹在子元素周围”。这种模式类似于“状态向下移动”：它在一个较小的组件中封装状态变化。这里的区别在于，状态被用于包裹渲染树中较慢部分的元素上，因此它不能那么容易地被提取。一个典型的例子是在组件的根元素上附加的onScroll或onMouseMove回调。
+
+在这种情况下，状态管理和使用该状态的部分可以提取到一个更小的组件中，并将慢速组件作为子组件传递给它。从更小的组件的角度来看，子组件只是属性，因此它们不会受到状态变化的影响，因此不会重新渲染。
+
+
+✅ Preventing re-renders with composition: components as props
+
+这个模式与 "children as props" 类似，但适用于需要将**独立组件**分别传入不同位置的场景。
+
+**核心思想**：将状态管理封装在小组件中，重型组件作为 props 传入，避免因状态变化而重渲染。
+
+**适用场景**：当几个重型组件独立于状态变化，但不能作为整体提取时。
+
+```javascript
+// ❌ 问题：所有组件都会因为 notifications 更新而重渲染
+const Dashboard = () => {
+  const [notifications, setNotifications] = useState([]);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNotifications(prev => [...prev, `新通知 ${Date.now()}`]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <div>
+      <ExpensiveHeader />      {/* 会重渲染 */}
+      <ExpensiveSidebar />     {/* 会重渲染 */}
+      <ExpensiveContent />     {/* 会重渲染 */}
+      <NotificationCenter notifications={notifications} />
+    </div>
+  );
+};
+
+// ✅ 解决方案：组件作为 props 传入
+const DashboardLayout = ({ header, sidebar, content }) => {
+  const [notifications, setNotifications] = useState([]);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNotifications(prev => [...prev, `新通知 ${Date.now()}`]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <div>
+      {header}    {/* 不会重渲染 */}
+      {sidebar}   {/* 不会重渲染 */}
+      {content}   {/* 不会重渲染 */}
+      <NotificationCenter notifications={notifications} />
+    </div>
+  );
+};
+
+// 使用时
+const Dashboard = () => (
+  <DashboardLayout
+    header={<ExpensiveHeader />}
+    sidebar={<ExpensiveSidebar />}
+    content={<ExpensiveContent />}
+  />
+);
+```
+
+**关键点**：作为 props 传入的组件不会因为 `DashboardLayout` 内部状态变化而重新渲染，因为它们是在父组件中创建的。
+
+
+
+
+#### Preventing re-renders with React.memo
+
+在React.memo中包裹一个组件将阻止由渲染树上游某处触发的重新渲染链，除非此组件的属性已更改。
+
+当渲染一个不依赖于重新渲染来源（即状态、更改的数据）的重量级组件时，这可能会很有用。
+
+#### ✅ React.memo: component with props
+
+所有非原始值的 props 都必须被记忆化，React.memo 才能正常工作
