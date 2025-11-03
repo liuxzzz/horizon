@@ -1,0 +1,76 @@
+---
+title: React 源码温故知新系列（一）
+date: '2025-10-27'
+tags: ['React', 'Frontend','源码']
+draft: false
+---
+
+
+## React 应用的宏观包结构
+
+### 基础包结构
+
+#### 1. react
+
+react 的基础包，只提供react组件的必要函数。
+
+#### 2. react-dom
+
+react的渲染器之一，是react 与 web 平台连接的桥梁。将react 的运行结果输出到web界面上。大多数场景下, 能用到此包的就是一个入口函数 ReactDOM.render(<App/>, document.getElementById('root'))。
+
+#### 3. react-reconciler
+
+react 得以运行的核心包(综合协调react-dom,react,scheduler各包之间的调用与配合)。管理 react 应用状态的输入和结果的输出. 将输入信号最终转换成输出信号传递给渲染器.
+
+#### 4. scheduler
+
+调度机制的核心实现, 核心任务就是执行回调(回调函数由react-reconciler提供)
+
+## 宏观总览
+
+### 架构分层
+
+可将 react 应用整体结构分为接口层(api)和内核层(core)2 个部分
+ 
+#### 接口层(api)
+
+我们在日常开发中使用的大部分api都是接口层提供的,使用这些api来更改状态触发react的re-render。 所以要想 react 工作, 基本上是调用react包的 api 去与其他包进行交互。
+
+#### 内核层(core)
+
+整个内核部分, 由 3 部分构成:
+
+1. 调度器 (scheduler)
+
+核心职责只有一个：
+- 消费react-reconciler 提供的回调函数
+
+2. 构造器 (react-reconciler)
+
+有 3 个核心职责:
+- 接收发起的初次渲染和重渲染的更新请求
+- 将fiber树的构造过程包装在一个回调函数中, 并将此回调函数传入到scheduler包等待调度.
+- 装载渲染器，保证在需要的时候, 能够正确调用渲染器的 api, 生成实际节点
+
+3. 渲染器（react-dom）
+
+核心职责有两个：
+- 通过ReactDOM.render来引导应用的启动
+- 能够将react-reconciler包构造出来的fiber树表现出来, 生成 dom 节点(浏览器中).
+
+核心关系用如下图来表示：
+
+![image](https://xiaozhuang-s3.oss-cn-beijing.aliyuncs.com/core-packages.c2850581.png)
+
+在上述的途中可以可以观察到，在调度器和构造器中分别有两个工作循环：
+
+1. fiber树构造循环
+
+控制 fiber 树的构造, 整个过程是一个深度优先遍历.
+
+2. 回调任务调度循环
+
+控制所有任务(task)的调度，是以二叉堆为数据结构 循环执行堆的顶点, 直到堆被清空.
+
+
+宏观上来看，大循环(任务调度循环)负责调度task, 小循环(fiber 构造循环)负责实现task。

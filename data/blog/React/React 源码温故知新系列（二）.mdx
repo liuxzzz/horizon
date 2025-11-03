@@ -1,0 +1,143 @@
+---
+title: React 源码温故知新系列（二）
+date: '2025-10-27'
+tags: ['React', 'Frontend','源码']
+draft: false
+---
+
+# 深入理解 React 的更新流程：从 Scheduler 到 Reconciler
+
+
+> 最近在手绘笔记中整理了 React 的核心更新机制，这篇文章基于那张图来详细讲解 React 内部的执行逻辑——从一次更新请求开始，到 Fiber 树的构建与渲染结束。
+
+在 React 中，当我们调用 setState() 或触发某个状态变化时，就会发起 **一次更新请求（update request）**。  
+这次更新的目标是让 React 根据新的状态重新计算 UI。
+
+在我的图中，这个过程从左上角的“事件”开始，比如：
+
+```
+onClick={() => setCount(count + 1)}
+```
+
+这行代码的执行，会触发一次更新任务的调度。
+
+
+---
+
+二、Scheduler：任务调度器的角色
+
+当更新请求产生后，React 并不会立即同步执行更新。
+而是交给一个专门的模块——Scheduler（调度器）。
+
+> Scheduler 的作用是：根据任务优先级，控制任务的执行时机，保证主线程的流畅性。
+
+
+
+在图中可以看到：
+
+scheduler → 注册一个 task → task 进入执行队列
+
+也就是说，React 会把每一次更新包装成一个 task（任务），放入 Scheduler 的任务队列中。
+
+Scheduler 会根据浏览器的空闲时间（requestIdleCallback 或 MessageChannel）来分片执行这些任务。
+
+
+---
+
+三、Reconciler：协调器的工作
+
+当 Scheduler 决定执行一个任务时，它会交给 Reconciler（协调器） 来处理。
+
+在图中的中间部分，可以看到 Reconciler 的两个核心步骤：
+
+1. 构建 Fiber 树
+React 会根据当前组件结构和新的状态，创建或更新对应的 Fiber 节点。
+这一步相当于“对比虚拟 DOM”，决定哪些部分需要更新。
+
+
+2. 渲染 Fiber 树（commit）
+当 Fiber 树计算完成后，Reconciler 会把变更交给 Renderer（在 Web 上是 React DOM），将其同步到真实的 DOM 上。
+
+
+
+
+---
+
+四、执行流程串联
+
+根据整张图，可以用下面这段伪代码描述整个过程：
+
+```
+
+// 1. 触发更新
+setState(newState);
+
+// 2. Scheduler 接管，生成 task
+scheduler.schedule(() => {
+  // 3. Reconciler 开始协调
+  reconciler.reconcile(fiberRoot);
+  // 4. 渲染阶段
+  reconciler.commit(fiberRoot);
+});
+
+
+```
+完整的数据流如下：
+
+事件触发更新 → Scheduler 注册任务 → 任务进入执行队列
+→ 执行 task → Reconciler 构建 Fiber 树 → 渲染 Fiber 树 → UI 更新完成
+
+
+---
+
+五、总结：为什么要分成这几个模块？
+
+模块        职责        目的
+
+Scheduler        任务优先级调度        避免主线程阻塞，提升流畅度
+Reconciler        构建 & 对比 Fiber 树        计算 UI 变化
+Renderer（React DOM）        提交变更        更新真实 DOM
+
+
+这种设计使得 React 能够：
+
+分片渲染（Fiber 支持中断、恢复）
+
+控制渲染优先级（高优任务先执行）
+
+保持高帧率和用户交互流畅性
+
+
+
+---
+
+✏️ 小结
+
+这张图可以总结为一句话：
+
+> React 的一次更新，从 Scheduler 的任务调度开始，经过 Reconciler 的协调与渲染，最终才会反映到屏幕上。
+
+
+
+它背后的精髓是 时间切片（Time Slicing） 与 优先级调度 —— 让复杂的 UI 更新不再阻塞用户交互。
+
+
+---
+
+附图关键词回顾：
+
+Scheduler：任务调度器
+
+Task：更新任务
+
+Reconciler：协调器（构建与渲染 Fiber 树）
+
+Fiber Tree：虚拟 DOM 的运行时结构
+
+一次更新请求 → 多步执行流程
+
+
+
+---
+
+> 这篇文章对应的手绘图是我在理解 React Fiber 架构时的笔记，希望这份梳理也能帮助你更直观地掌握 React 更新机制的整体流程。
